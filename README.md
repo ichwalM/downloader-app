@@ -1,36 +1,113 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Downloader App
 
-## Getting Started
+Aplikasi web untuk mengunduh media:
+- YouTube: ekstrak audio (MP3)
+- TikTok: unduh video (MP4)
+- Auto-detect platform dari URL, preview metadata, dan pengalaman UI modern.
 
-First, run the development server:
+Hak Cipta © Ichwal-dev • Portofolio: https://app.walldev.my.id
+
+## Ringkasan
+
+Stack utama:
+- Next.js 16 (App Router, runtime Node.js)
+- React 19 + React Compiler
+- TypeScript 5
+- Tailwind CSS 4
+- framer-motion, lucide-react
+- @distube/ytdl-core (YouTube) dan tiktok-scraper-ts (TikTok)
+
+Fitur:
+- Deteksi otomatis platform (YouTube/TikTok)
+- Preview judul, thumbnail, dan durasi
+- Unduh audio YouTube (MP3) atau video TikTok (MP4)
+- UI bersih, responsif, dan progres loading yang halus
+
+## Arsitektur Singkat
+
+Direktori utama:
+- `src/app/page.tsx` — halaman beranda dan layout
+- `src/components/Downloader.tsx` — komponen utama input URL, preview, dan aksi unduh
+- `src/app/api/resolve/route.ts` — API untuk mengambil metadata (judul, thumbnail, durasi)
+- `src/app/api/download/route.ts` — API untuk streaming konten sebagai file unduhan
+- `src/lib/media.ts` — utilitas: validasi URL, deteksi platform, format durasi, sanitasi nama file
+- `next.config.ts` — konfigurasi Next (React Compiler, izin domain gambar)
+
+Alur kerja:
+1) Pengguna menempel URL di halaman
+2) Frontend memanggil `/api/resolve` untuk preview
+3) Saat unduh, frontend mengarahkan ke `/api/download?url=...&platform=...` untuk streaming file
+
+## Prasyarat
+
+- Node.js LTS terbaru (disarankan v18+)
+- Paket manajer: npm/yarn/pnpm/bun (bebas)
+
+## Instalasi
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+# atau
+yarn
+# atau
+pnpm install
+# atau
+bun install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Menjalankan
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Pengembangan:
+```bash
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Produksi:
+```bash
+npm run build
+npm start
+```
 
-## Learn More
+Lint:
+```bash
+npm run lint
+```
 
-To learn more about Next.js, take a look at the following resources:
+## API Endpoints
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `POST /api/resolve`
+  - Body: `{ "url": "https://..." }`
+  - Respons: `{ platform, title, thumbnail, duration }`
+  - Validasi: hanya URL YouTube atau TikTok
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `GET /api/download?url=...&platform=...`
+  - Mengalirkan konten sebagai file unduhan
+  - YouTube: audio/mpeg (.mp3)
+  - TikTok: video/mp4 (.mp4)
 
-## Deploy on Vercel
+## Konfigurasi Gambar
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Domain gambar yang diizinkan ada di `next.config.ts` (YouTube thumbnail dan beberapa domain TikTok CDN). Jika thumbnail dari domain lain dibutuhkan, tambahkan pola domain ke konfigurasi `images.remotePatterns`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Catatan & Keterbatasan
+
+- YouTube menggunakan `@distube/ytdl-core` dengan header agen khusus untuk stabilitas.
+- TikTok menggunakan `tiktok-scraper-ts`; beberapa konten mungkin membatasi `downloadURL` dan fallback ke `playURL`.
+- Perubahan kebijakan platform bisa mempengaruhi ketersediaan metadata/unduhan.
+
+## Hak Cipta & Lisensi
+
+Hak Cipta © Ichwal-dev. Seluruh hak dilindungi undang-undang.
+Jika ingin menambah lisensi terbuka (misal MIT), tambahkan berkas LISENSI dan sesuaikan pernyataan hak cipta ini.
+
+## Penulis
+
+- Ichwal-dev
+- Portofolio: https://app.walldev.my.id
+
+## Referensi
+
+- Next.js: https://nextjs.org/docs
+- Tailwind CSS: https://tailwindcss.com
+- ytdl-core (Distube fork): https://github.com/distubejs/ytdl-core
+- tiktok-scraper-ts: https://www.npmjs.com/package/tiktok-scraper-ts
