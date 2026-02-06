@@ -49,7 +49,7 @@ const youtubeHandler = async (url: string) => {
 };
 
 const tiktokHandler = async (url: string) => {
-  const info = await scraper.video(url, true);
+  const info = await scraper.video(url);
   if (!info) {
     throw new Error("Gagal mengambil metadata TikTok.");
   }
