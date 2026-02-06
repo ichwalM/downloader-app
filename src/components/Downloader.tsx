@@ -69,18 +69,20 @@ export default function Downloader() {
     setLoading(true);
     setPreview(null);
     try {
-      const response = await fetch("/api/resolve", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
+      const response = await fetch(`/api/resolve?${new URLSearchParams({ url }).toString()}`, {
+        method: "GET",
       });
-      const payload = await response.json();
+      const contentType = response.headers.get("content-type") || "";
+      const dataText = await response.text();
+      const payload = contentType.includes("application/json") ? JSON.parse(dataText) : {};
       if (!response.ok) {
-        pushToast(payload?.message || "Gagal mengambil metadata.", "error");
+        const message =
+          (payload as any)?.message || dataText || "Gagal mengambil metadata.";
+        pushToast(message, "error");
         setLoading(false);
         return;
       }
-      setPreview(payload);
+      setPreview(payload as PreviewData);
       setProgress(100);
       pushToast("Metadata berhasil diambil.", "success");
     } catch {

@@ -49,22 +49,78 @@ const youtubeHandler = async (url: string) => {
 };
 
 const tiktokHandler = async (url: string) => {
-  const info = await scraper.video(url);
-  if (!info) {
+  try {
+    const info = await scraper.video(url);
+    if (info) {
+      const safeInfo = info as NonNullable<typeof info>;
+      return {
+        platform: "tiktok" as Platform,
+        title: safeInfo.description || "TikTok Video",
+        thumbnail: safeInfo.cover || "",
+        duration: Number(safeInfo.duration || 0),
+      };
+    }
+  } catch {}
+  try {
+    const oembed = await fetch(
+      `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`,
+      {
+        headers: {
+          "user-agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+          "accept-language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
+        },
+      },
+    );
+    if (oembed.ok) {
+      const data = (await oembed.json()) as {
+        title?: string;
+        author_name?: string;
+        thumbnail_url?: string;
+      };
+      return {
+        platform: "tiktok" as Platform,
+        title: data.title || "TikTok Video",
+        thumbnail: data.thumbnail_url || "",
+        duration: 0,
+      };
+    }
+  } catch {}
+  const upstream = await fetch(url, {
+    headers: {
+      "user-agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+      "accept-language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
+      "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    },
+  });
+  if (!upstream.ok) {
     throw new Error("Gagal mengambil metadata TikTok.");
   }
-  const safeInfo = info as NonNullable<typeof info>;
+  const html = await upstream.text();
+  const ogImageMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
+  const ogTitleMatch =
+    html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i) ||
+    html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i);
+  const title = ogTitleMatch?.[1] || "TikTok Video";
+  const thumbnail = ogImageMatch?.[1] || "";
   return {
     platform: "tiktok" as Platform,
-    title: safeInfo.description || "TikTok Video",
-    thumbnail: safeInfo.cover || "",
-    duration: Number(safeInfo.duration || 0),
+    title,
+    thumbnail,
+    duration: 0,
   };
 };
 
 export async function POST(request: Request) {
   try {
-    const { url } = await request.json();
+    let url = "";
+    try {
+      const body = await request.json();
+      url = body?.url || "";
+    } catch {
+      url = "";
+    }
     if (!url || typeof url !== "string" || !isValidUrl(url)) {
       return NextResponse.json(
         { message: "URL tidak valid." },
@@ -80,6 +136,30 @@ export async function POST(request: Request) {
       );
     }
 
+    const data = platform === "youtube" ? await youtubeHandler(url) : await tiktokHandler(url);
+    return NextResponse.json(data, { status: 200 });
+  } catch (error) {
+    return NextResponse.json(
+      { message: error instanceof Error ? error.message : "Gagal mengambil metadata." },
+      { status: 500 },
+    );
+  }
+}
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const url = searchParams.get("url") || "";
+    if (!url || !isValidUrl(url)) {
+      return NextResponse.json({ message: "URL tidak valid." }, { status: 400 });
+    }
+    const platform = detectPlatform(url);
+    if (!platform) {
+      return NextResponse.json(
+        { message: "URL harus dari YouTube atau TikTok." },
+        { status: 400 },
+      );
+    }
     const data = platform === "youtube" ? await youtubeHandler(url) : await tiktokHandler(url);
     return NextResponse.json(data, { status: 200 });
   } catch (error) {

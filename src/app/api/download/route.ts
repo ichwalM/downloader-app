@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
 import ytdl from "@distube/ytdl-core";
 import { Readable } from "stream";
-import type { ReadableStream as NodeReadableStream } from "stream/web";
 import { TTScraper } from "tiktok-scraper-ts";
 import { detectPlatform, isValidUrl, sanitizeFilename } from "@/lib/media";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const scraper = new TTScraper();
 const ytdlAgent = ytdl.createAgent();
 const ytdlRequestOptions = {
   headers: {
@@ -18,7 +16,14 @@ const ytdlRequestOptions = {
   },
 };
 
-const streamYoutube = async (url: string) => {
+type StreamResult = {
+  nodeStream?: Readable;
+  webStream?: ReadableStream;
+  filename: string;
+  contentType: string;
+};
+
+const streamYoutube = async (url: string): Promise<StreamResult> => {
   const info = await ytdl.getBasicInfo(url, {
     agent: ytdlAgent,
     requestOptions: ytdlRequestOptions,
@@ -31,13 +36,13 @@ const streamYoutube = async (url: string) => {
     requestOptions: ytdlRequestOptions,
   });
   return {
-    stream,
+    nodeStream: stream,
     filename: `${title}.mp3`,
     contentType: "audio/mpeg",
   };
 };
 
-const streamTikTok = async (url: string) => {
+const streamTikTok = async (url: string): Promise<StreamResult> => {
   const info = await scraper.video(url);
   if (!info) {
     throw new Error("Gagal mengambil metadata TikTok.");
@@ -48,13 +53,20 @@ const streamTikTok = async (url: string) => {
   if (!downloadUrl) {
     throw new Error("Link download TikTok tidak tersedia.");
   }
-  const upstream = await fetch(downloadUrl);
+  const upstream = await fetch(downloadUrl, {
+    headers: {
+      "user-agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+      "accept-language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
+      accept: "*/*",
+      referer: "https://www.tiktok.com/",
+    },
+  });
   if (!upstream.ok || !upstream.body) {
     throw new Error("Gagal mengambil video dari TikTok.");
   }
-  const body = upstream.body as unknown as NodeReadableStream;
   return {
-    stream: Readable.fromWeb(body),
+    webStream: upstream.body,
     filename: `${title}.mp4`,
     contentType: "video/mp4",
   };
@@ -73,10 +85,11 @@ export async function GET(request: Request) {
     const result =
       platform === "youtube" ? await streamYoutube(url) : await streamTikTok(url);
 
-    return new Response(Readable.toWeb(result.stream) as ReadableStream, {
+    const bodyStream =
+      result.nodeStream ? (Readable.toWeb(result.nodeStream) as ReadableStream) : result.webStream!;
+    return new Response(bodyStream, {
       headers: {
         "Content-Type": result.contentType,
-        "Content-Disposition": `attachment; filename="${result.filename}"`,
       },
     });
   } catch (error) {
