@@ -68,6 +68,16 @@ npm run build
 npm start
 ```
 
+Port tertentu (contoh 3100):
+```bash
+npm run build
+npm run start:3100
+```
+Alternatif via environment variable (PowerShell):
+```bash
+$env:PORT=3100; npm start
+```
+
 Lint:
 ```bash
 npm run lint
