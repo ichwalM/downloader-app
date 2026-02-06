@@ -7,6 +7,7 @@ import { detectPlatform, isValidUrl, sanitizeFilename } from "@/lib/media";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const scraper = new TTScraper();
 const ytdlAgent = ytdl.createAgent();
 const ytdlRequestOptions = {
   headers: {
